@@ -8,3 +8,6 @@
 # IDE
 .idea/
 .vscode/
+wiki_platform/__pycache__/
+wiki_platform/ngrok_token.txt
+wiki_platform/wiki.log

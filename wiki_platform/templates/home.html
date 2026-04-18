@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Jerry 知识维基</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;color:#1a1a2e;background:#f0f2f5;line-height:1.7;}
+a{color:#1446c0;text-decoration:none;}
+a:hover{color:#0a1f5c;text-decoration:underline;}
+
+/* 顶栏 */
+.header{
+  background:linear-gradient(135deg,#0a1f5c,#1446c0);
+  color:#fff;
+  display:flex;align-items:center;
+  height:52px;padding:0 16px;gap:10px;
+  position:sticky;top:0;z-index:100;
+}
+.header h1{font-size:16px;font-weight:700;white-space:nowrap;flex-shrink:0;color:#fff;}
+.header nav{
+  display:flex;gap:4px;flex:1;flex-wrap:nowrap;overflow-x:auto;
+  scrollbar-width:none;
+}
+.header nav::-webkit-scrollbar{display:none;}
+.header nav a{
+  color:rgba(255,255,255,.85);font-size:12px;
+  padding:5px 10px;border-radius:14px;
+  white-space:nowrap;flex-shrink:0;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.15);
+  transition:background .15s;
+}
+.header nav a:hover,.header nav a.active{
+  background:rgba(255,255,255,.18);color:#fff;
+  text-decoration:none;
+}
+.hdr-right{flex-shrink:0;position:relative;}
+.search-icon{
+  display:flex;align-items:center;justify-content:center;
+  width:34px;height:34px;border-radius:50%;
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+  color:#fff;font-size:14px;cursor:pointer;flex-shrink:0;
+  transition:background .15s;
+}
+.search-icon:hover{background:rgba(255,255,255,.2);}
+.search-expand{
+  position:absolute;top:0;right:0;
+  display:none;flex-direction:row;align-items:center;
+  background:rgba(10,15,50,.98);border:1px solid rgba(255,255,255,.2);
+  border-radius:20px;padding:4px 8px;gap:6px;
+  box-shadow:0 4px 16px rgba(0,0,0,.4);
+}
+.search-expand.active{display:flex;}
+.search-expand input{
+  border:none;outline:none;background:transparent;
+  color:#fff;font-size:13px;width:150px;caret-color:#fff;
+}
+.search-expand input::placeholder{color:rgba(255,255,255,.5);}
+.search-expand button{
+  background:rgba(255,255,255,.15);border:none;border-radius:14px;
+  color:#fff;font-size:12px;cursor:pointer;padding:3px 8px;
+}
+.search-icon-label{
+  font-size:11px;color:rgba(255,255,255,.7);
+}
+
+/* 内容 */
+.container{max-width:1200px;margin:0 auto;padding:20px 16px;}
+
+/* 统计栏 */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:24px;}
+.stat-card{background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.08);text-align:center;}
+.stat-card .num{font-size:24px;font-weight:800;color:#0a1f5c;}
+.stat-card .label{font-size:11px;color:#6b7280;margin-top:3px;}
+.stat-card.blue{background:linear-gradient(135deg,#0a1f5c,#1446c0);color:#fff;}
+.stat-card a{color:inherit;text-decoration:none;display:block;}
+.stat-card a:hover .num{color:#1446c0;}
+.stat-card.blue a:hover .num{color:#fff;}
+.stat-card.blue .label{color:rgba(255,255,255,.65);}
+.stat-card.blue .num{color:#fff;}
+
+/* 最近更新 */
+.section{margin-bottom:28px;}
+.section h2{font-size:15px;font-weight:700;color:#0a1f5c;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #0a1f5c;display:flex;justify-content:space-between;align-items:center;}
+.section h2 a{font-size:11px;font-weight:400;color:#1446c0;}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+.card-item{background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.08);transition:box-shadow .2s,transform .2s;cursor:pointer;border-left:3px solid #0a1f5c;}
+.card-item:hover{box-shadow:0 4px 16px rgba(0,0,0,.14);transform:translateY(-2px);}
+.card-item.orange{border-left-color:#d97706;}
+.card-item.teal{border-left-color:#0f766e;}
+.card-item.green{border-left-color:#15803d;}
+.card-item.gold{border-left-color:#b45309;}
+.card-item .card-title{font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:6px;line-height:1.4;}
+.card-item .card-title a{color:#1a1a2e;}
+.card-item .card-title a:hover{color:#1446c0;}
+.card-item .card-meta{font-size:11px;color:#9ca3af;margin-bottom:8px;}
+.card-item .card-tags{display:flex;flex-wrap:wrap;gap:4px;}
+.tag{font-size:10px;padding:2px 8px;border-radius:3px;background:#eff6ff;color:#1446c0;}
+.card-item.orange .tag{background:#fffbeb;color:#d97706;}
+.card-item.teal .tag{background:#f0fdfa;color:#0f766e;}
+.card-item.green .tag{background:#f0fdf4;color:#15803d;}
+.card-item.gold .tag{background:#fffbf0;color:#b45309;}
+.card-item .card-summary{font-size:12px;color:#6b7280;margin-top:8px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+
+/* 底部 */
+.footer{text-align:center;padding:30px;color:#9ca3af;font-size:12px;border-top:1px solid #e5e7eb;margin-top:40px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🧠 Jerry 知识维基</h1>
+  <nav>
+    <a href="/">首页</a>
+    <a href="/graph">图谱</a>
+    <a href="/tags">标签</a>
+    <a href="/category/概念卡">概念卡</a>
+    <a href="/category/方法论">方法论</a>
+    <a href="/category/案例库">案例库</a>
+    <a href="/category/项目复盘">项目复盘</a>
+  </nav>
+  <div class="hdr-right">
+    <div class="search-icon" onclick="expandSearch(this)" title="搜索">🔍</div>
+    <form class="search-expand" action="/search" method="get" onsubmit="return submitSearch(this)">
+      <input type="text" name="q" placeholder="搜索..." value="{{query or ''}}">
+      <button type="submit">搜索</button>
+    </form>
+  </div>
+</div>
+
+<div class="container">
+  <div class="stats">
+    <div class="stat-card blue">
+      <div class="num">{{total}}</div>
+      <div class="label">知识卡片</div>
+    </div>
+    {% for cat, count in cat_stats.items() %}
+    <a href="/category/{{cat}}" class="stat-card">
+      <div class="num">{{count}}</div>
+      <div class="label">{{cat}}</div>
+    </a>
+    {% endfor %}
+  </div>
+
+  <div class="section">
+    <h2>📄 最近更新 <a href="/all" style="font-size:11px;font-weight:400;color:#1446c0;">查看全部 →</a></h2>
+    <div class="cards-grid">
+      {% for card in recent %}
+      <div class="card-item {% if card.category == '概念卡' %}blue{% elif card.category == '方法论' %}teal{% elif card.category == '案例库' %}green{% elif card.category == '项目复盘' %}orange{% else %}gold{% endif %}">
+        <div class="card-title"><a href="/card/{{card.slug}}">{{card.title}}</a></div>
+        <div class="card-meta">{{card.category}} · {{card.date or '无日期'}}</div>
+        <div class="card-tags">
+          {% for tag in card.tags[:4] %}
+          <span class="tag">{{tag}}</span>
+          {% endfor %}
+        </div>
+        <div class="card-summary">{{card.summary}}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🔗 知识图谱 <a href="/graph">进入交互图谱 →</a></h2>
+    <p style="color:#6b7280;font-size:13px;margin-bottom:10px;">点击进入可视化图谱，查看各知识点之间的关联关系，鼠标悬停在节点上可预览内容。</p>
+  </div>
+</div>
+
+<div class="footer">
+  Jerry 知识维基 · Jerry Knowledge Wiki · {{total}} 知识卡片<br>
+  数据来源：/Volumes/256G/gesila_wiki
+</div>
+
+<script>
+document.querySelectorAll('.card-item').forEach(function(item) {
+  item.addEventListener('click', function() {
+    var link = this.querySelector('a');
+    if (link) window.location = link.href;
+  });
+});
+
+function expandSearch(el){
+  var form = el.nextElementSibling;
+  form.classList.add('active');
+  form.querySelector('input').focus();
+  document.addEventListener('click', function handler(e){
+    if (!form.contains(e.target) && e.target !== el) {
+      form.classList.remove('active');
+      document.removeEventListener('click', handler);
+    }
+  });
+}
+function submitSearch(form){
+  var q = form.querySelector('input').value.trim();
+  if(!q) return false;
+  form.submit();
+  return false;
+}
+</script>
+
+</body>
+</html>

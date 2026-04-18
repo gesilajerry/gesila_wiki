@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>{{card.title}} - Jerry 知识维基</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;color:#1a1a2e;background:#f0f2f5;line-height:1.7;}
+a{color:#1446c0;text-decoration:none;}
+a:hover{text-decoration:underline;}
+
+/* 顶栏 */
+.header{
+  background:linear-gradient(135deg,#0a1f5c,#1446c0);
+  color:#fff;display:flex;align-items:center;
+  height:52px;padding:0 16px;gap:10px;
+  position:sticky;top:0;z-index:100;
+}
+.header h1{font-size:16px;font-weight:700;white-space:nowrap;flex-shrink:0;color:#fff;}
+.header nav{display:flex;gap:4px;flex:1;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;}
+.header nav::-webkit-scrollbar{display:none;}
+.header nav a{color:rgba(255,255,255,.85);font-size:12px;padding:5px 10px;border-radius:14px;white-space:nowrap;flex-shrink:0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);}
+.header nav a:hover{background:rgba(255,255,255,.18);color:#fff;text-decoration:none;}
+.hdr-right{flex-shrink:0;position:relative;}
+.search-icon{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:14px;cursor:pointer;flex-shrink:0;transition:background .15s;}
+.search-icon:hover{background:rgba(255,255,255,.2);}
+.search-expand{position:absolute;top:0;right:0;display:none;flex-direction:row;align-items:center;background:rgba(10,15,50,.98);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:4px 8px;gap:6px;box-shadow:0 4px 16px rgba(0,0,0,.4);}
+.search-expand.active{display:flex;}
+.search-expand input{border:none;outline:none;background:transparent;color:#fff;font-size:13px;width:140px;caret-color:#fff;}
+.search-expand input::placeholder{color:rgba(255,255,255,.5);}
+.search-expand button{background:rgba(255,255,255,.15);border:none;border-radius:14px;color:#fff;font-size:12px;cursor:pointer;padding:3px 8px;}
+
+/* 布局 */
+.container{max-width:1100px;margin:0 auto;padding:30px 20px;display:grid;grid-template-columns:1fr 280px;gap:24px;}
+
+/* 主内容 */
+.article{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden;}
+.article-header{padding:28px 36px 20px;border-bottom:1px solid #e5e7eb;}
+.article-header .breadcrumb{font-size:12px;color:#9ca3af;margin-bottom:10px;}
+.article-header .breadcrumb a{color:#9ca3af;}
+.article-header h1{font-size:22px;font-weight:800;color:#0a1f5c;line-height:1.3;margin-bottom:12px;}
+.article-meta{font-size:12px;color:#9ca3af;display:flex;gap:16px;flex-wrap:wrap;}
+.article-meta span{display:flex;align-items:center;gap:4px;}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.tag{font-size:11px;padding:3px 10px;border-radius:3px;background:#eff6ff;color:#1446c0;font-weight:600;}
+
+.article-body{padding:28px 36px;}
+.article-body h2{font-size:17px;font-weight:700;color:#0a1f5c;margin:24px 0 12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;}
+.article-body h3{font-size:14px;font-weight:700;color:#334155;margin:18px 0 10px;}
+.article-body p{font-size:13.5px;color:#374151;line-height:1.8;margin-bottom:12px;}
+.article-body ul,.article-body ol{padding-left:24px;margin-bottom:14px;}
+.article-body li{font-size:13.5px;color:#374151;margin-bottom:6px;line-height:1.7;}
+.article-body table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px;}
+.article-body th{background:#0a1f5c;color:#fff;padding:9px 14px;text-align:left;font-weight:600;}
+.article-body td{padding:8px 14px;border-bottom:1px solid #e5e7eb;vertical-align:top;}
+.article-body tr:nth-child(even) td{background:#f8fafc;}
+.article-body strong{color:#0a1f5c;}
+.article-body blockquote{padding:12px 18px;border-left:4px solid #1446c0;background:#eff6ff;margin:16px 0;border-radius:0 6px 6px 0;}
+.article-body pre{background:#1a1a2e;color:#e2e8f0;padding:16px 20px;border-radius:8px;overflow-x:auto;margin:16px 0;font-size:13px;line-height:1.6;}
+.article-body code{font-family:"Fira Code",Consolas,monospace;font-size:12.5px;background:#f1f5f9;padding:1px 5px;border-radius:3px;color:#0f766e;}
+.article-body pre code{background:none;padding:0;color:inherit;}
+.article-body img{max-width:100%;border-radius:6px;}
+
+/* wiki内部链接 */
+.wiki-link{color:#1446c0;font-weight:600;border-bottom:1px dashed #1446c0;}
+
+/* 侧边栏 */
+.sidebar{display-flex;flex-direction:column;gap:18px;}
+.side-card{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:18px 20px;}
+.side-card h3{font-size:13px;font-weight:700;color:#0a1f5c;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #0a1f5c;}
+.side-card a{display:block;font-size:12.5px;color:#374151;padding:6px 0;border-bottom:1px solid #f1f5f9;line-height:1.5;}
+.side-card a:hover{color:#1446c0;}
+.side-card a:last-child{border-bottom:none;}
+.side-card .tag{display:inline-block;font-size:10px;padding:2px 7px;border-radius:3px;background:#eff6ff;color:#1446c0;margin:2px;}
+
+.side-card.related{border-left:3px solid #0a1f5c;}
+.related-item{padding:8px 0;border-bottom:1px solid #f1f5f9;}
+.related-item:last-child{border-bottom:none;}
+.related-item .r-title{font-size:12.5px;font-weight:600;color:#1a1a2e;line-height:1.4;}
+.related-item .r-title a{color:#1a1a2e;}
+.related-item .r-title a:hover{color:#1446c0;}
+.related-item .r-meta{font-size:11px;color:#9ca3af;margin-top:3px;}
+.related-item .r-tags{margin-top:4px;}
+
+/* 底部 */
+.footer{text-align:center;padding:24px;color:#9ca3af;font-size:12px;border-top:1px solid #e5e7eb;margin-top:30px;}
+
+/* 响应式：移动端 */
+@media(max-width:640px){
+  .container{
+    display:flex;flex-direction:column;
+    padding:14px 12px;gap:14px;
+  }
+  .article-header{padding:16px 16px 12px;}
+  .article-header h1{font-size:17px;}
+  .article-body{padding:16px 16px;}
+  .article-body h2{font-size:15px;}
+  .article-body h3{font-size:13.5px;}
+  .article-body p,.article-body li{font-size:13px;}
+  .article-body table{font-size:12px;}
+  .article-body th,.article-body td{padding:7px 10px;}
+  .article-body blockquote{padding:10px 14px;}
+  .article-body pre{padding:12px 14px;font-size:12px;}
+  .sidebar{order:2;gap:12px;}
+  .side-card h3{font-size:12.5px;}
+  .related-item .r-title{font-size:12.5px;}
+  .footer{padding:18px;font-size:11px;}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🧠 Jerry 知识维基</h1>
+  <nav>
+    <a href="/">首页</a>
+    <a href="/graph">图谱</a>
+    <a href="/tags">标签</a>
+    <a href="/category/概念卡">概念卡</a>
+  </nav>
+  <div class="hdr-right">
+    <div class="search-icon" onclick="expandSearch(this)" title="搜索">🔍</div>
+    <form class="search-expand" action="/search" method="get" onsubmit="return submitSearch(this)">
+      <input type="text" name="q" placeholder="搜索...">
+    </form>
+  </div>
+</div>
+
+<div class="container">
+  <div class="article">
+    <div class="article-header">
+      <div class="breadcrumb">
+        <a href="/">首页</a> &gt; <a href="/category/{{card.category}}">{{card.category}}</a> &gt; {{card.title}}
+      </div>
+      <h1>{{card.title}}</h1>
+      <div class="article-meta">
+        <span>📁 {{card.category}}</span>
+        {% if card.date %}
+        <span>📅 {{card.date}}</span>
+        {% endif %}
+        <span>🔗 {{card.links|length}} 个关联</span>
+      </div>
+      {% if card.tags %}
+      <div class="tags">
+        {% for tag in card.tags %}
+        <span class="tag">{{tag}}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="article-body">
+      {{ content|safe }}
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="side-card">
+      <h3>📊 卡片信息</h3>
+      <div style="font-size:12px;color:#6b7280;line-height:1.8;">
+        <div><strong>分类：</strong>{{card.category}}</div>
+        {% if card.date %}
+        <div><strong>日期：</strong>{{card.date}}</div>
+        {% endif %}
+        <div><strong>标签：</strong></div>
+        <div style="margin-top:4px;">
+          {% for tag in card.tags %}
+          <span class="tag">{{tag}}</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    {% if related %}
+    <div class="side-card related">
+      <h3>🔗 相关卡片</h3>
+      {% for other, shared in related %}
+      <div class="related-item">
+        <div class="r-title"><a href="/card/{{other.slug}}">{{other.title}}</a></div>
+        <div class="r-meta">{{other.category}} · {{other.date or ''}}</div>
+        <div class="r-tags">
+          {% for tag in shared[:3] %}
+          <span class="tag">{{tag}}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="side-card">
+      <h3>🗺️ 知识图谱</h3>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:10px;">查看此卡片在知识网络中的位置</p>
+      <a href="/graph?focus={{card.slug}}" style="display:inline-block;padding:7px 14px;background:#0a1f5c;color:#fff;border-radius:6px;font-size:12px;text-align:center;">打开图谱 →</a>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <a href="/" style="color:#9ca3af;">Jerry 知识维基</a> · {{card.title}} · 
+  <a href="/card/{{card.slug}}" style="color:#9ca3af;">原始文件</a>
+</div>
+
+<script>
+function expandSearch(el){
+  var form = el.nextElementSibling;
+  form.classList.add('active');
+  form.querySelector('input').focus();
+  document.addEventListener('click', function handler(e){
+    if (!form.contains(e.target) && e.target !== el) {
+      form.classList.remove('active');
+      document.removeEventListener('click', handler);
+    }
+  });
+}
+function submitSearch(form){
+  var q = form.querySelector('input').value.trim();
+  if(!q) return false;
+  form.submit();
+  return false;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>知识图谱 - Jerry 知识维基</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;background:#080d1a;color:#1a1a2e;overflow:hidden;}
+
+.header{
+  position:fixed;top:0;left:0;right:0;height:50px;
+  background:rgba(10,15,30,.97);border-bottom:1px solid rgba(255,255,255,.08);
+  display:flex;align-items:center;padding:0 16px;gap:12px;
+  z-index:100;backdrop-filter:blur(10px);
+}
+.header h1{font-size:15px;font-weight:700;color:#fff;white-space:nowrap;flex-shrink:0;}
+.header nav{display:flex;gap:4px;flex:1;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;}
+.header nav::-webkit-scrollbar{display:none;}
+.header nav a{color:rgba(255,255,255,.7);font-size:12px;padding:5px 10px;border-radius:14px;white-space:nowrap;flex-shrink:0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);}
+.header nav a:hover{background:rgba(255,255,255,.15);color:#fff;text-decoration:none;}
+.hdr-right{flex-shrink:0;position:relative;display:flex;flex-direction:row;gap:6px;align-items:center;}
+.search-icon{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:14px;cursor:pointer;transition:background .15s;flex-shrink:0;}
+.search-icon:hover{background:rgba(255,255,255,.2);}
+.search-expand{display:none;flex-direction:row;align-items:center;background:rgba(10,15,50,.98);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:4px 8px;gap:6px;box-shadow:0 4px 16px rgba(0,0,0,.4);white-space:nowrap;}
+.search-expand.active{display:flex;position:static;transform:none;}
+.search-expand input{border:none;outline:none;background:transparent;color:#fff;font-size:13px;width:140px;caret-color:#fff;}
+.search-expand input::placeholder{color:rgba(255,255,255,.5);}
+.search-expand button{background:rgba(255,255,255,.15);border:none;border-radius:14px;color:#fff;font-size:12px;cursor:pointer;padding:3px 8px;}
+
+#graph-wrap{position:fixed;top:50px;left:0;right:0;bottom:0;background:#080d1a;}
+#graph-wrap svg{width:100%;height:100%;display:block;}
+.link{stroke:#1e3050;stroke-opacity:.7;stroke-width:1px;}
+.node circle{stroke:#fff;stroke-width:.5px;}
+.node text{font-size:8px;fill:#94a3b8;pointer-events:none;}
+
+.tooltip{
+  position:fixed;background:rgba(10,18,38,.97);border:1px solid rgba(255,255,255,.12);
+  border-radius:10px;padding:13px 15px;max-width:250px;pointer-events:none;
+  opacity:0;transition:opacity .15s;z-index:200;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);backdrop-filter:blur(12px);color:#e2e8f0;
+}
+.tooltip.visible{opacity:1;}
+.tooltip h3{font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;line-height:1.3;}
+.tooltip .t-meta{font-size:10px;color:#60a5fa;margin-bottom:6px;}
+.tooltip .t-tags{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px;}
+.tooltip .t-tag{font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(96,165,250,.15);color:#93c5fd;}
+.tooltip .t-summary{font-size:11px;color:#94a3b8;line-height:1.5;}
+.tooltip a{display:inline-block;margin-top:7px;font-size:11px;color:#60a5fa;pointer-events:auto;}
+
+.panel{position:fixed;bottom:14px;left:14px;background:rgba(10,18,38,.9);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:11px 13px;backdrop-filter:blur(10px);}
+.panel h4{font-size:10px;color:#60a5fa;font-weight:700;margin-bottom:7px;text-transform:uppercase;letter-spacing:.5px;}
+.panel .legend{display:flex;flex-direction:column;gap:4px;}
+.panel .legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;}
+.panel .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.panel .count{font-size:10px;color:#475569;margin-top:6px;}
+
+.hint{position:fixed;bottom:14px;right:14px;background:rgba(10,18,38,.82);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:9px 13px;font-size:10px;color:#64748b;backdrop-filter:blur(8px);}
+.hint span{color:#60a5fa;}
+
+#loading{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#475569;font-size:14px;text-align:center;display:block;}
+#loading .spin{width:28px;height:28px;border:2px solid rgba(96,165,250,.2);border-top-color:#60a5fa;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#status{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(10,18,38,.9);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 14px;font-size:11px;color:#60a5fa;display:none;z-index:150;}
+
+@media(max-width:500px){
+  .header h1{font-size:13px;}
+  .panel{bottom:10px;left:10px;padding:9px 11px;}
+  .hint{bottom:10px;right:10px;}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🧠 知识图谱</h1>
+  <nav>
+    <a href="/">首页</a>
+    <a href="/tags">标签</a>
+    <a href="/category/概念卡">概念卡</a>
+  </nav>
+  <div class="hdr-right">
+    <div class="search-icon" onclick="expandSearch(this)" title="搜索">🔍</div>
+    <form class="search-expand" onsubmit="return doSearch(this)">
+      <input type="text" id="srch" placeholder="搜索节点...">
+      <button type="submit">搜</button>
+    </form>
+    <div onclick="resetZoom()" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:12px;cursor:pointer;flex-shrink:0;" title="重置">⟲</div>
+  </div>
+</div>
+
+<div id="graph-wrap">
+  <svg id="gsvg"></svg>
+  <div id="loading"><div class="spin"></div>加载中...</div>
+</div>
+<div id="status"></div>
+
+<div class="tooltip" id="tip">
+  <h3 id="tt-t"></h3>
+  <div class="t-meta" id="tt-m"></div>
+  <div class="t-tags" id="tt-tags"></div>
+  <div class="t-summary" id="tt-s"></div>
+  <a id="tt-l" href="#">查看详情 →</a>
+</div>
+
+<div class="panel">
+  <h4>节点分类</h4>
+  <div class="legend">
+    <div class="legend-item"><div class="dot" style="background:#3b82f6;"></div>概念卡</div>
+    <div class="legend-item"><div class="dot" style="background:#10b981;"></div>方法论</div>
+    <div class="legend-item"><div class="dot" style="background:#f59e0b;"></div>案例库</div>
+    <div class="legend-item"><div class="dot" style="background:#ef4444;"></div>项目复盘</div>
+    <div class="legend-item"><div class="dot" style="background:#8b5cf6;"></div>其他</div>
+  </div>
+  <div class="count" id="cnt"></div>
+</div>
+
+<div class="hint">拖拽 · 滚轮缩放 · 点击查看</div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+(function(){
+var CAT = {
+  '概念卡':'#3b82f6','方法论':'#10b981','案例库':'#f59e0b',
+  '项目复盘':'#ef4444','01_Inbox':'#8b5cf6','03_Output':'#06b6d4','其他':'#64748b'
+};
+var svg, g, sim, zoom, W, H;
+var tooltip = document.getElementById('tip');
+var status = document.getElementById('status');
+
+function showStatus(msg){
+  status.textContent = msg;
+  status.style.display = 'block';
+  setTimeout(function(){ status.style.display = 'none'; }, 3000);
+}
+
+function getR(d){ return Math.max(6, Math.min(16, 5 + (d.degree||0))); }
+
+function initLayout(nodes, cx, cy, rad){
+  var n = nodes.length;
+  if(!n) return;
+  nodes.forEach(function(d, i){
+    var angle = (2*Math.PI*i/n) - Math.PI/2;
+    d.x = cx + rad*Math.cos(angle);
+    d.y = cy + rad*Math.sin(angle);
+  });
+}
+
+function showTip(evt, d){
+  document.getElementById('tt-t').textContent = d.title||'?';
+  document.getElementById('tt-m').textContent = (d.category||'') + (d.date?' · '+d.date:'') + ' · 🔗' + (d.degree||0);
+  document.getElementById('tt-tags').innerHTML = (d.tags||[]).slice(0,5).map(function(t){return '<span class="t-tag">'+t+'</span>';}).join('');
+  document.getElementById('tt-s').textContent = d.summary||'';
+  document.getElementById('tt-l').href = '/card/'+d.id;
+  tooltip.classList.add('visible');
+  var r = tooltip.getBoundingClientRect();
+  var x = evt.clientX+14, y = evt.clientY-r.height/2;
+  if(x+r.width > window.innerWidth-8) x = evt.clientX-r.width-14;
+  if(y < 54) y = 54;
+  if(y+r.height > window.innerHeight-8) y = window.innerHeight-r.height-8;
+  tooltip.style.left = x+'px'; tooltip.style.top = y+'px';
+}
+function hideTip(){ tooltip.classList.remove('visible'); }
+function resetZoom(){ svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity); }
+
+function dragstarted(ev,d){ if(!ev.active) sim.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y; }
+function dragged(ev,d){ d.fx=ev.x; d.fy=ev.y; }
+function dragended(ev,d){ if(!ev.active) sim.alphaTarget(0); d.fx=null; d.fy=null; }
+
+async function main(){
+  var wrap = document.getElementById('graph-wrap');
+  W = wrap.clientWidth; H = wrap.clientHeight;
+  if(!W||!H){ W=window.innerWidth; H=window.innerHeight-50; }
+
+  var data;
+  try {
+    var r = await fetch('/api/graph');
+    if(!r.ok) throw new Error('API '+r.status);
+    data = await r.json();
+  } catch(e){
+    showStatus('数据加载失败: '+e.message);
+    return;
+  }
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('cnt').textContent = data.nodes.length+' 节点 · '+data.edges.length+' 连接';
+  showStatus('已加载 '+data.nodes.length+' 节点');
+  window._graphData = data;
+
+  if(!data.nodes.length){ showStatus('无数据'); return; }
+
+  // Init positions in circle before simulation
+  initLayout(data.nodes, W/2, H/2, Math.min(W,H)*0.35);
+
+  svg = d3.select('#gsvg').attr('width',W).attr('height',H);
+  zoom = d3.zoom().scaleExtent([.05,4]).on('zoom',function(e){ g.attr('transform',e.transform); });
+  svg.call(zoom);
+  svg.on('click', hideTip);
+  g = svg.append('g');
+
+  sim = d3.forceSimulation(data.nodes)
+    .force('link', d3.forceLink(data.edges).id(function(d){return d.id;}).distance(100).strength(.15))
+    .force('charge', d3.forceManyBody().strength(-80))
+    .force('center', d3.forceCenter(W/2,H/2))
+    .force('collide', d3.forceCollide().radius(function(d){return getR(d)+5;}))
+    .alpha(.3).alphaDecay(.01);
+
+  var link = g.append('g').selectAll('line').data(data.edges).join('line').attr('class','link');
+  var node = g.append('g').selectAll('g').data(data.nodes).join('g').attr('class','node')
+    .call(d3.drag().on('start',dragstarted).on('drag',dragged).on('end',dragended))
+    .on('click',function(ev,d){ ev.stopPropagation(); showTip(ev,d); })
+    .on('mouseover',function(ev,d){ showTip(ev,d); })
+    .on('mouseout',hideTip)
+    .on('touchstart',function(ev,d){ ev.stopPropagation(); showTip(ev.touches[0],d); });
+
+  node.append('circle').attr('r',getR).attr('fill',function(d){return CAT[d.category]||'#64748b';}).attr('opacity',.88);
+  node.append('text').attr('y',function(d){return getR(d)+10;}).attr('text-anchor','middle')
+    .text(function(d){var t=d.title||''; return t.length>11?t.slice(0,10)+'…':t;});
+
+  sim.on('tick', function(){
+    link
+      .attr('x1',function(d){return (d.source.x||0);}).attr('y1',function(d){return (d.source.y||0);})
+      .attr('x2',function(d){return (d.target.x||0);}).attr('y2',function(d){return (d.target.y||0);});
+    node.attr('transform',function(d){return 'translate('+(d.x||0)+','+(d.y||0)+')';});
+  });
+
+  // Search filter
+  document.getElementById('srch').addEventListener('input', function(){
+    var q = this.value.trim().toLowerCase();
+    if(!q){
+      node.select('circle').attr('opacity',.88).attr('stroke-width',.5);
+      return;
+    }
+    node.select('circle')
+      .attr('opacity', function(d){
+        return (d.title||'').toLowerCase().indexOf(q)>=0 || (d.tags||[]).some(function(t){return t.toLowerCase().indexOf(q)>=0;}) ? 1 : .06;
+      })
+      .attr('stroke-width', function(d){return (d.title||'').toLowerCase().indexOf(q)>=0 ? 2 : .5;});
+  });
+
+  // Focus from URL
+  var fp = new URLSearchParams(location.search).get('focus');
+  if(fp){
+    setTimeout(function(){
+      var nd = data.nodes.find(function(n){return n.id===fp;});
+      if(nd && nd.x!=null){
+        svg.transition().duration(700).call(zoom.transform,
+          d3.zoomIdentity.translate(W/2-(nd.x)*1.5, H/2-(nd.y)*1.5).scale(1.5));
+        showTip({clientX:W/2,clientY:H/2}, nd);
+      }
+    }, 1500);
+  }
+}
+
+window.addEventListener('resize', function(){
+  if(!svg) return;
+  var wrap = document.getElementById('graph-wrap');
+  W = wrap.clientWidth; H = wrap.clientHeight;
+  svg.attr('width',W).attr('height',H);
+  sim.force('center', d3.forceCenter(W/2,H/2));
+  sim.alpha(.15).restart();
+});
+
+main().catch(function(e){ showStatus('错误: '+e.message); console.error(e); });
+
+function expandSearch(el){
+  var form = el.nextElementSibling;
+  form.classList.add('active');
+  form.querySelector('input').focus();
+  document.addEventListener('click', function h(e){
+    if(!form.contains(e.target) && e.target !== el){
+      form.classList.remove('active');
+      document.removeEventListener('click', h);
+    }
+  });
+}
+function doSearch(form){
+  var q = form.querySelector('input').value.trim();
+  if(!q || !window._graphData) return false;
+  var nd = window._graphData.nodes.find(function(n){
+    return (n.title||'').toLowerCase().indexOf(q.toLowerCase())>=0 ||
+           (n.tags||[]).some(function(t){return t.toLowerCase().indexOf(q.toLowerCase())>=0;});
+  });
+  if(nd && svg){
+    svg.transition().duration(700).call(zoom.transform,
+      d3.zoomIdentity.translate(W/2-(nd.x||0)*1.5, H/2-(nd.y||0)*1.5).scale(1.5));
+    showTip({clientX:W/2,clientY:H/2}, nd);
+  }
+  return false;
+}
+
+function expandSearch(el){
+  var form = el.nextElementSibling;
+  form.classList.add('active');
+  form.querySelector('input').focus();
+  document.addEventListener('click', function h(e){
+    if(!form.contains(e.target) && e.target !== el){
+      form.classList.remove('active');
+      document.removeEventListener('click', h);
+    }
+  });
+}
+function doSearch(form){
+  var q = form.querySelector('input').value.trim();
+  if(!q) return false;
+  var nd = data ? data.nodes.find(function(n){
+    return (n.title||'').toLowerCase().indexOf(q.toLowerCase())>=0 ||
+           (n.tags||[]).some(function(t){return t.toLowerCase().indexOf(q.toLowerCase())>=0;});
+  }) : null;
+  if(nd && svg){
+    svg.transition().duration(700).call(zoom.transform,
+      d3.zoomIdentity.translate(W/2-(nd.x||0)*1.5, H/2-(nd.y||0)*1.5).scale(1.5));
+    showTip({clientX:W/2,clientY:H/2}, nd);
+  }
+  return false;
+}
+})();
+</script>
+</body>
+</html>
