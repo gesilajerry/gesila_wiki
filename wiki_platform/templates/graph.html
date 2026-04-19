@@ -104,13 +104,11 @@ body{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;background:#08
 </div>
 
 <div class="panel">
-  <h4>节点分类</h4>
+  <h4>三层架构</h4>
   <div class="legend">
-    <div class="legend-item"><div class="dot" style="background:#3b82f6;"></div>概念卡</div>
-    <div class="legend-item"><div class="dot" style="background:#10b981;"></div>方法论</div>
-    <div class="legend-item"><div class="dot" style="background:#f59e0b;"></div>案例库</div>
-    <div class="legend-item"><div class="dot" style="background:#ef4444;"></div>项目复盘</div>
-    <div class="legend-item"><div class="dot" style="background:#8b5cf6;"></div>其他</div>
+    <div class="legend-item"><div class="dot" style="background:#a78bfa;width:7px;height:7px;"></div>📥 输入层（外围）</div>
+    <div class="legend-item"><div class="dot" style="background:#60a5fa;width:10px;height:10px;"></div>🧱 结构层（中圈）</div>
+    <div class="legend-item"><div class="dot" style="background:#fbbf24;width:14px;height:14px;"></div>📤 输出层（核心）</div>
   </div>
   <div class="count" id="cnt"></div>
 </div>
@@ -120,10 +118,11 @@ body{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;background:#08
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
 (function(){
-var CAT = {
-  '概念卡':'#3b82f6','方法论':'#10b981','案例库':'#f59e0b',
-  '项目复盘':'#ef4444','01_Inbox':'#8b5cf6','03_Output':'#06b6d4','其他':'#64748b'
+var CAT_COLOR = {
+  '概念卡':'#60a5fa','方法论':'#34d399','案例库':'#fbbf24',
+  '项目复盘':'#f87171','01_Inbox':'#a78bfa','03_Output':'#fbbf24','其他':'#94a3b8'
 };
+var MAX_RAD_FRAC = [0.88, 0.65, 0.30]; // layer 0=input, 1=structure, 2=output
 var svg, g, sim, zoom, W, H;
 var tooltip = document.getElementById('tip');
 var status = document.getElementById('status');
@@ -134,21 +133,31 @@ function showStatus(msg){
   setTimeout(function(){ status.style.display = 'none'; }, 3000);
 }
 
-function getR(d){ return Math.max(6, Math.min(16, 5 + (d.degree||0))); }
+function getR(d){ var rmap = {0:5, 1:9, 2:13}; return rmap[d.layer] !== undefined ? rmap[d.layer] : 8; }
 
-function initLayout(nodes, cx, cy, rad){
-  var n = nodes.length;
-  if(!n) return;
-  nodes.forEach(function(d, i){
-    var angle = (2*Math.PI*i/n) - Math.PI/2;
-    d.x = cx + rad*Math.cos(angle);
-    d.y = cy + rad*Math.sin(angle);
+function initLayout(nodes, cx, cy, maxRad){
+  var layerGroups = {0:[], 1:[], 2:[]};
+  nodes.forEach(function(d){ var l = d.layer !== undefined ? d.layer : 1; layerGroups[l].push(d); });
+  var rings = [
+    {layer:0, rad: maxRad * 0.88},
+    {layer:1, rad: maxRad * 0.55},
+    {layer:2, rad: maxRad * 0.20},
+  ];
+  rings.forEach(function(ring){
+    var group = layerGroups[ring.layer];
+    if(!group.length) return;
+    group.forEach(function(d, i){
+      var angle = (2*Math.PI*i/group.length) - Math.PI/2;
+      d.x = cx + ring.rad * Math.cos(angle);
+      d.y = cy + ring.rad * Math.sin(angle);
+    });
   });
 }
 
 function showTip(evt, d){
   document.getElementById('tt-t').textContent = d.title||'?';
-  document.getElementById('tt-m').textContent = (d.category||'') + (d.date?' · '+d.date:'') + ' · 🔗' + (d.degree||0);
+  var layerName = {0:'📥 输入层',1:'🧱 结构层',2:'📤 输出层'}[d.layer];
+  document.getElementById('tt-m').textContent = (layerName||'') + ' · ' + (d.category||'') + (d.date?' · '+d.date:'') + ' · 🔗' + (d.degree||0);
   document.getElementById('tt-tags').innerHTML = (d.tags||[]).slice(0,5).map(function(t){return '<span class="t-tag">'+t+'</span>';}).join('');
   document.getElementById('tt-s').textContent = d.summary||'';
   document.getElementById('tt-l').href = '/card/'+d.id;
@@ -190,7 +199,7 @@ async function main(){
   if(!data.nodes.length){ showStatus('无数据'); return; }
 
   // Init positions in circle before simulation
-  initLayout(data.nodes, W/2, H/2, Math.min(W,H)*0.35);
+  initLayout(data.nodes, W/2, H/2, Math.min(W,H)*0.38);
 
   svg = d3.select('#gsvg').attr('width',W).attr('height',H);
   zoom = d3.zoom().scaleExtent([.05,4]).on('zoom',function(e){ g.attr('transform',e.transform); });
@@ -199,11 +208,11 @@ async function main(){
   g = svg.append('g');
 
   sim = d3.forceSimulation(data.nodes)
-    .force('link', d3.forceLink(data.edges).id(function(d){return d.id;}).distance(100).strength(.15))
+    .force('link', d3.forceLink(data.edges).id(function(d){return d.id;}).distance(60).strength(.08))
     .force('charge', d3.forceManyBody().strength(-80))
     .force('center', d3.forceCenter(W/2,H/2))
-    .force('collide', d3.forceCollide().radius(function(d){return getR(d)+5;}))
-    .alpha(.3).alphaDecay(.01);
+    .force('collide', d3.forceCollide().radius(function(d){return getR(d)+4;}))
+    .alpha(.4).alphaDecay(.01);
 
   var link = g.append('g').selectAll('line').data(data.edges).join('line').attr('class','link');
   var node = g.append('g').selectAll('g').data(data.nodes).join('g').attr('class','node')
@@ -213,7 +222,7 @@ async function main(){
     .on('mouseout',hideTip)
     .on('touchstart',function(ev,d){ ev.stopPropagation(); showTip(ev.touches[0],d); });
 
-  node.append('circle').attr('r',getR).attr('fill',function(d){return CAT[d.category]||'#64748b';}).attr('opacity',.88);
+  node.append('circle').attr('r',getR).attr('fill',function(d){return CAT_COLOR[d.category]||'#64748b';}).attr('opacity',.88);
   node.append('text').attr('y',function(d){return getR(d)+10;}).attr('text-anchor','middle')
     .text(function(d){var t=d.title||''; return t.length>11?t.slice(0,10)+'…':t;});
 

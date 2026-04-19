@@ -7,30 +7,43 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;color:#1a1a2e;background:#f0f2f5;line-height:1.7;}
+a{color:#1446c0;text-decoration:none;}
+a:hover{text-decoration:underline;}
+
+/* 顶栏 */
 .header{
   background:linear-gradient(135deg,#0a1f5c,#1446c0);color:#fff;
   display:flex;align-items:center;height:52px;padding:0 16px;gap:10px;
-  position:sticky;top:0;z-index:100;
+  position:sticky;top:0;z-index:100;flex-wrap:nowrap;
 }
 .header h1{font-size:16px;font-weight:700;white-space:nowrap;flex-shrink:0;color:#fff;}
 .header nav{display:flex;gap:4px;flex:1;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;}
 .header nav::-webkit-scrollbar{display:none;}
 .header nav a{color:rgba(255,255,255,.85);font-size:12px;padding:5px 10px;border-radius:14px;white-space:nowrap;flex-shrink:0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);}
 .header nav a:hover{background:rgba(255,255,255,.18);color:#fff;text-decoration:none;}
-.container{max-width:900px;margin:0 auto;padding:30px 20px;}
-h2{font-size:17px;font-weight:700;color:#0a1f5c;margin-bottom:20px;}
-.tag-cloud{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:20px;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);}
-.tag-item{display:inline-block;padding:5px 14px;border-radius:20px;background:#eff6ff;color:#1446c0;font-size:13px;transition:transform .2s,box-shadow .2s;}
-.tag-item:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.12);}
-.tag-item.large{font-size:16px;padding:7px 18px;}
-.tag-item.xlarge{font-size:20px;padding:9px 22px;font-weight:700;}
-.count{font-size:10px;opacity:.6;margin-left:4px;}
+.hdr-right{flex-shrink:0;}
+
+/* 容器 */
+.container{max-width:900px;margin:0 auto;padding:20px 16px;}
+h2{font-size:15px;font-weight:700;color:#0a1f5c;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #0a1f5c;}
+.tag-cloud{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:16px;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.tag-item{display:inline-block;padding:5px 12px;border-radius:16px;background:#eff6ff;color:#1446c0;font-size:12px;transition:transform .15s,box-shadow .15s;}
+.tag-item:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.1);}
+.tag-item.large{font-size:14px;padding:6px 14px;}
+.tag-item.xlarge{font-size:16px;font-weight:700;padding:7px 16px;}
+.count{font-size:10px;opacity:.55;margin-left:3px;}
 </style>
 </head>
 <body>
 <div class="header">
-  <h1>🧠 Jerry 知识维基</h1>
-  <nav><a href="/">首页</a><a href="/graph">图谱</a></nav>
+  <h1>🧠 标签云</h1>
+  <nav>
+    <a href="/">首页</a>
+    <a href="/graph">图谱</a>
+    <a href="/category/概念卡">概念卡</a>
+    <a href="/category/方法论">方法论</a>
+    <a href="/all">全部</a>
+  </nav>
 </div>
 <div class="container">
   <h2>🏷️ 标签云（共 {{tags|length}} 个标签）</h2>

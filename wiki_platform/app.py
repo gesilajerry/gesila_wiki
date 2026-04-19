@@ -120,23 +120,28 @@ def build_graph():
     tag_index = defaultdict(list)
     topic_index = defaultdict(list)
 
-    # Extract H2 section titles as implicit topics
+    layer_map = {
+        '01_Inbox': 0,
+        '概念卡': 1, '方法论': 1, '案例库': 1, '项目复盘': 1,
+        '03_Output': 2,
+    }
+
     for c in cards:
-        h2s = re.findall(r'^##\s+(.+)$', c['raw'], re.MULTILINE)
-        for h2 in h2s:
-            # Use significant words from H2 as topics (skip generic ones)
-            skip = {'背景', '核心洞察', '核心事件', '核心数据', '核心观点', 
-                    '延伸思考', '小结', '总结', '附录', '补充', '概述'}
-            if h2.strip() not in skip and len(h2.strip()) > 2:
-                topic_index[h2.strip()].append(c)
         for t in c['tags']:
             tag_index[t].append(c)
+        h2s = re.findall(r'^##\s+(.+)$', c['raw'], re.MULTILINE)
+        for h2 in h2s:
+            skip = {'背景','核心洞察','核心事件','核心数据','核心观点',
+                    '延伸思考','小结','总结','附录','补充','概述'}
+            if h2.strip() not in skip and len(h2.strip()) > 2:
+                topic_index[h2.strip()].append(c)
 
     for c in cards:
         nodes.append({
             'id': c['slug'],
             'title': c['title'],
             'category': c['category'],
+            'layer': layer_map.get(c['category'], 1),
             'tags': c['tags'],
             'date': c['date'],
             'summary': c['summary'][:80],
@@ -152,27 +157,47 @@ def build_graph():
                 if n['id'] in key:
                     n['degree'] += 1
 
-    # Connect by explicit tags
+    # 1. Shared tags (cross-layer + same-layer)
     for c in cards:
         for tag in c['tags']:
             for other in tag_index[tag]:
-                add_edge(c['slug'], other['slug'], tag)
+                add_edge(c['slug'], other['slug'], f'标签:{tag}')
 
-    # Connect by H2 topic overlap
-    for topic, topic_cards in topic_index.items():
-        for i, ci in enumerate(topic_cards):
-            for j, cj in enumerate(topic_cards):
+    # 2. H2 topic overlap (within same layer)
+    for topic, cs in topic_index.items():
+        if len(cs) < 2:
+            continue
+        for i, ci in enumerate(cs):
+            for j, cj in enumerate(cs):
                 if i >= j:
                     continue
-                add_edge(ci['slug'], cj['slug'], topic[:15])
+                if ci['category'] == cj['category']:
+                    add_edge(ci['slug'], cj['slug'], f'同题:{topic[:12]}')
 
-    # Cross-reference by title mentions
-    for i, ci in enumerate(cards):
-        for j, cj in enumerate(cards):
-            if i >= j:
-                continue
-            if ci['title'] in cj['raw'] and ci['title'] != cj['title']:
-                add_edge(ci['slug'], cj['slug'], 'mentioned')
+    # 3. Title mention across layers (output cites structure)
+    all_cards = {c['slug']: c for c in cards}
+    for c in cards:
+        if layer_map.get(c['category']) == 2:  # output cards
+            for other in cards:
+                if layer_map.get(other['category']) == 1:  # structure cards
+                    if other['title'] in c['raw'] and other['slug'] != c['slug']:
+                        add_edge(c['slug'], other['slug'], '引用')
+
+    # 4. Cross-layer: inbox → structure (via shared tags, already covered above)
+    # 5. Cross-layer: structure → output (via title mention, already covered above)
+
+    # 6. Ensure no orphans: connect degree-0 nodes to same-category hubs
+    for n in nodes:
+        if n['degree'] == 0:
+            same_cat = [x for x in nodes if x['category'] == n['category'] and x['id'] != n['id']]
+            if same_cat:
+                best = max(same_cat, key=lambda x: x['degree'])
+                add_edge(n['id'], best['id'], '同范畴')
+            else:
+                others = [x for x in nodes if x['degree'] > 0]
+                if others:
+                    best = max(others, key=lambda x: x['degree'])
+                    add_edge(n['id'], best['id'], '跨类关联')
 
     return {'nodes': nodes, 'edges': edges}
 
