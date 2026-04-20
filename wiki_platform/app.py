@@ -227,7 +227,7 @@ def card_view(slug):
             continue
         shared = set(card['tags']) & set(other['tags'])
         if shared:
-            related.append((other, shared))
+            related.append((other, list(shared)[:3]))
     related = sorted(related, key=lambda x: len(x[1]), reverse=True)[:8]
     html = render_card(card, cards)
     return render_template('card.html', card=card, content=html, related=related)

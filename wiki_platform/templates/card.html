@@ -179,7 +179,7 @@ a:hover{text-decoration:underline;}
         <div class="r-title"><a href="/card/{{other.slug}}">{{other.title}}</a></div>
         <div class="r-meta">{{other.category}} · {{other.date or ''}}</div>
         <div class="r-tags">
-          {% for tag in shared[:3] %}
+          {% for tag in (shared | list)[:3] %}
           <span class="tag">{{tag}}</span>
           {% endfor %}
         </div>
