@@ -3,7 +3,7 @@
 """
 Jerry Wiki Platform
 """
-import os, re, markdown2 as markdown
+import os, re, markdown2 as markdown, time, threading
 from flask import Flask, render_template, request, abort
 from collections import defaultdict
 
@@ -20,13 +20,73 @@ SUBDIRS = {
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'jerry-wiki-2026'
 
-def get_cards():
-    import time
+# ── Cache ──────────────────────────────────────────────────────────────────
+_cache = {'cards': [], 'graph': {}, 'loaded_at': 0, 'file_mtimes': {}}
+_cache_lock = threading.RLock()
+_rebuilding = False
+
+def _mtime(path):
+    try:
+        return os.stat(path).st_mtime
+    except OSError:
+        return 0
+
+def _scan_mtimes():
+    """Collect mtime of all .md files."""
+    mtimes = {}
+    for subpath in SUBDIRS:
+        d = os.path.join(WIKI_ROOT, subpath)
+        if not os.path.exists(d):
+            continue
+        for root, _, files in os.walk(d):
+            for f in files:
+                if f.endswith('.md'):
+                    mtimes[os.path.join(root, f)] = _mtime(os.path.join(root, f))
+    return mtimes
+
+def _files_changed(old_mtimes, new_mtimes):
+    """Return True if any file was added/deleted/modified."""
+    if set(old_mtimes) != set(new_mtimes):
+        return True
+    for k, v in new_mtimes.items():
+        if old_mtimes.get(k) != v:
+            return True
+    return False
+
+def get_cards(force_refresh=False):
+    global _cache, _rebuilding
     now = time.time()
-    # Cache expires every 4 hours (14400s) — auto-refresh on next request
-    if hasattr(app, '_cards_cache') and hasattr(app, '_cards_loaded_at'):
-        if now - app._cards_loaded_at < 14400:
-            return app._cards_cache
+
+    with _cache_lock:
+        if not force_refresh:
+            new_mtimes = _scan_mtimes()
+            if (_cache['cards']
+                    and not _files_changed(_cache['file_mtimes'], new_mtimes)
+                    and now - _cache['loaded_at'] < 3600):
+                return _cache['cards']
+            elif _rebuilding:
+                return _cache['cards']
+
+        if not _rebuilding:
+            _rebuilding = True
+            threading.Thread(target=_rebuild_cache, args=(new_mtimes if '_scan_mtimes' in locals() else _scan_mtimes(),), daemon=True).start()
+
+    return _cache['cards']
+
+def _rebuild_cache(file_mtimes):
+    """Background rebuild — runs outside the request thread."""
+    global _cache, _rebuilding
+    cards = _load_cards()
+    graph = _build_graph(cards)
+    with _cache_lock:
+        _cache['cards'] = cards
+        _cache['graph'] = graph
+        _cache['loaded_at'] = time.time()
+        _cache['file_mtimes'] = file_mtimes
+        _rebuilding = False
+    print(f"[cache] Rebuilt: {len(cards)} cards, {len(graph.get('nodes',[]))} nodes")
+
+def _load_cards():
     cards = []
     for subpath, cat in SUBDIRS.items():
         d = os.path.join(WIKI_ROOT, subpath)
@@ -50,11 +110,9 @@ def get_cards():
                 summary = extract_summary(text)
                 cards.append(dict(slug=slug, path=path, title=title, tags=tags,
                                   category=cat, date=date, summary=summary, raw=text))
-    import time
-    app._cards_cache = cards
-    app._cards_loaded_at = now
     return cards
 
+# ── Helpers ─────────────────────────────────────────────────────────────────
 def extract_title(text, fallback):
     for line in text.split('\n'):
         line = line.strip()
@@ -75,7 +133,6 @@ def extract_tags(text):
         if idx < 0:
             continue
         tag_part = line[idx+1:]
-        # Split by × separator
         parts = re.split(r'\u00d7', tag_part)  # ×
         for p in parts:
             p = p.strip().strip('*# \t')
@@ -113,8 +170,7 @@ def render_card(card, all_cards):
             )
     return html
 
-def build_graph():
-    cards = get_cards()
+def _build_graph(cards):
     nodes, edges = [], []
     edge_set = set()
     tag_index = defaultdict(list)
@@ -157,13 +213,11 @@ def build_graph():
                 if n['id'] in key:
                     n['degree'] += 1
 
-    # 1. Shared tags (cross-layer + same-layer)
     for c in cards:
         for tag in c['tags']:
             for other in tag_index[tag]:
                 add_edge(c['slug'], other['slug'], f'标签:{tag}')
 
-    # 2. H2 topic overlap (within same layer)
     for topic, cs in topic_index.items():
         if len(cs) < 2:
             continue
@@ -174,19 +228,14 @@ def build_graph():
                 if ci['category'] == cj['category']:
                     add_edge(ci['slug'], cj['slug'], f'同题:{topic[:12]}')
 
-    # 3. Title mention across layers (output cites structure)
-    all_cards = {c['slug']: c for c in cards}
+    all_cards_map = {c['slug']: c for c in cards}
     for c in cards:
-        if layer_map.get(c['category']) == 2:  # output cards
+        if layer_map.get(c['category']) == 2:
             for other in cards:
-                if layer_map.get(other['category']) == 1:  # structure cards
+                if layer_map.get(other['category']) == 1:
                     if other['title'] in c['raw'] and other['slug'] != c['slug']:
                         add_edge(c['slug'], other['slug'], '引用')
 
-    # 4. Cross-layer: inbox → structure (via shared tags, already covered above)
-    # 5. Cross-layer: structure → output (via title mention, already covered above)
-
-    # 6. Ensure no orphans: connect degree-0 nodes to same-category hubs
     for n in nodes:
         if n['degree'] == 0:
             same_cat = [x for x in nodes if x['category'] == n['category'] and x['id'] != n['id']]
@@ -201,6 +250,15 @@ def build_graph():
 
     return {'nodes': nodes, 'edges': edges}
 
+def build_graph():
+    global _cache
+    cards = get_cards()
+    with _cache_lock:
+        if _cache['graph']:
+            return _cache['graph']
+    return _build_graph(cards)
+
+# ── Routes ───────────────────────────────────────────────────────────────────
 @app.route('/')
 def home():
     cards = get_cards()
@@ -278,29 +336,27 @@ def tags_page():
     return render_template('tags.html', tags=tags)
 
 if __name__ == '__main__':
-    cards = get_cards()
-    print("Jerry Wiki loaded: {} cards".format(len(cards)))
-    # Test tag extraction
-    if cards:
-        sample = [c for c in cards if c['tags']][:3]
-        for c in sample:
-            print("  {} -> {}".format(c['title'][:30], c['tags'][:5]))
+    print("[Jerry Wiki] Starting... pre-warming cache")
+    t0 = time.time()
+
+    # Pre-warm on startup
+    file_mtimes = _scan_mtimes()
+    cards = _load_cards()
+    graph = _build_graph(cards)
+    with _cache_lock:
+        _cache['cards'] = cards
+        _cache['graph'] = graph
+        _cache['loaded_at'] = time.time()
+        _cache['file_mtimes'] = file_mtimes
+
+    print(f"[Jerry Wiki] Pre-warmed {len(cards)} cards in {time.time()-t0:.1f}s")
+
+    # Ngrok token support (legacy — uses external ngrok now)
     ngrok_tok_file = os.path.join(os.path.dirname(__file__), 'ngrok_token.txt')
     if os.path.exists(ngrok_tok_file):
         with open(ngrok_tok_file) as f:
             token = f.read().strip()
         if token:
-            print("Ngrok token found, attempting to start...")
-            try:
-                from pyngrok import ngrok, conf
-                c = conf.PyngrokConfig(ngrok_path='/tmp/ngrok', auth_token=token)
-                conf.set_default(c)
-                tunnel = ngrok.connect(5001, bind_tls=True)
-                print("Public URL: " + tunnel.public_url)
-            except ImportError:
-                print("pyngrok not installed: pip3 install pyngrok --break-system-packages")
-            except Exception as e:
-                print("Ngrok error: " + str(e))
-    else:
-        print("No ngrok_token.txt - local only")
+            print("Ngrok token found (not used — external ngrok process running)")
+
     app.run(host='0.0.0.0', port=5001, debug=False)
