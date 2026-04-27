@@ -37,10 +37,12 @@ body{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;background:#08
 .tooltip{
   position:fixed;background:rgba(10,18,38,.97);border:1px solid rgba(255,255,255,.12);
   border-radius:10px;padding:13px 15px;max-width:250px;pointer-events:none;
-  opacity:0;transition:opacity .15s;z-index:200;
+  opacity:0;transition:opacity .15s, visibility .15s;z-index:200;
   box-shadow:0 8px 32px rgba(0,0,0,.6);backdrop-filter:blur(12px);color:#e2e8f0;
+  /* Extend invisible hit area below tooltip to bridge gap from node */
+  margin-top: 8px;
 }
-.tooltip.visible{opacity:1;}
+.tooltip.visible{opacity:1;pointer-events:auto;}
 .tooltip h3{font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;line-height:1.3;}
 .tooltip .t-meta{font-size:10px;color:#60a5fa;margin-bottom:6px;}
 .tooltip .t-tags{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px;}
@@ -126,6 +128,7 @@ var MAX_RAD_FRAC = [0.88, 0.65, 0.30]; // layer 0=input, 1=structure, 2=output
 var svg, g, sim, zoom, W, H;
 var tooltip = document.getElementById('tip');
 var status = document.getElementById('status');
+var tipTimer = null;
 
 function showStatus(msg){
   status.textContent = msg;
@@ -155,6 +158,7 @@ function initLayout(nodes, cx, cy, maxRad){
 }
 
 function showTip(evt, d){
+  if(tipTimer){ clearTimeout(tipTimer); tipTimer = null; }
   document.getElementById('tt-t').textContent = d.title||'?';
   var layerName = {0:'📥 输入层',1:'🧱 结构层',2:'📤 输出层'}[d.layer];
   document.getElementById('tt-m').textContent = (layerName||'') + ' · ' + (d.category||'') + (d.date?' · '+d.date:'') + ' · 🔗' + (d.degree||0);
@@ -170,6 +174,7 @@ function showTip(evt, d){
   tooltip.style.left = x+'px'; tooltip.style.top = y+'px';
 }
 function hideTip(){ tooltip.classList.remove('visible'); }
+function scheduleHideTip(){ tipTimer = setTimeout(hideTip, 300); }
 function resetZoom(){ svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity); }
 
 function dragstarted(ev,d){ if(!ev.active) sim.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y; }
@@ -217,10 +222,14 @@ async function main(){
   var link = g.append('g').selectAll('line').data(data.edges).join('line').attr('class','link');
   var node = g.append('g').selectAll('g').data(data.nodes).join('g').attr('class','node')
     .call(d3.drag().on('start',dragstarted).on('drag',dragged).on('end',dragended))
-    .on('click',function(ev,d){ ev.stopPropagation(); showTip(ev,d); })
-    .on('mouseover',function(ev,d){ showTip(ev,d); })
-    .on('mouseout',hideTip)
+    .on('click',function(ev,d){ ev.stopPropagation(); window.location='/card/'+d.id; })
+    .on('mouseenter',function(ev,d){ showTip(ev,d); })
+    .on('mouseleave',scheduleHideTip)
     .on('touchstart',function(ev,d){ ev.stopPropagation(); showTip(ev.touches[0],d); });
+
+  // tooltip itself: mouseenter cancels hide, mouseleave schedules hide
+  tooltip.addEventListener('mouseenter', function(){ if(tipTimer){ clearTimeout(tipTimer); tipTimer=null; } });
+  tooltip.addEventListener('mouseleave', scheduleHideTip);
 
   node.append('circle').attr('r',getR).attr('fill',function(d){return CAT_COLOR[d.category]||'#64748b';}).attr('opacity',.88);
   node.append('text').attr('y',function(d){return getR(d)+10;}).attr('text-anchor','middle')

@@ -36,6 +36,12 @@ a:hover{text-decoration:underline;}
 .card-item.green .tag{background:#f0fdf4;color:#15803d;}
 .card-item .card-summary{font-size:12px;color:#6b7280;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .empty{text-align:center;padding:60px;color:#9ca3af;font-size:14px;}
+/* Pagination */
+.pagination{margin-top:24px;display:flex;justify-content:center;gap:6px;align-items:center;}
+.pagination a,.pagination span{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:8px;font-size:13px;border:1px solid rgba(0,0,0,.12);background:#fff;color:#1a1a2e;text-decoration:none;}
+.pagination a:hover{background:#eff6ff;color:#1446c0;border-color:#1446c0;}
+.pagination .cur{background:#0a1f5c;color:#fff;border-color:#0a1f5c;}
+.pagination .ellipsis{background:none;border:none;color:#9ca3af;}
 </style>
 </head>
 <body>
@@ -45,11 +51,12 @@ a:hover{text-decoration:underline;}
     <a href="/">首页</a>
     <a href="/graph">图谱</a>
     <a href="/tags">标签</a>
+    <a href="/all">全部</a>
   </nav>
 </div>
 <div class="container">
   <div class="section">
-    <h2>📁 {{category}}（共 {{cards|length}} 篇）</h2>
+    <h2>📁 {{category}}{% if total %}（共 {{ total }} 篇{% if pages>1 %} · 第 {{ page }}/{{ pages }} 页{% endif %}）{% endif %}</h2>
     {% if cards %}
     <div class="cards-grid">
       {% for card in cards %}
@@ -65,6 +72,28 @@ a:hover{text-decoration:underline;}
     </div>
     {% else %}
     <div class="empty">该分类下暂无内容</div>
+    {% endif %}
+
+    {% if pages > 1 %}
+    <div class="pagination">
+      {% if page > 1 %}
+      <a href="?page={{ page-1 }}">← 上一页</a>
+      {% endif %}
+      {% for p in range(1, pages+1) %}
+        {% if p == page %}
+        <span class="cur">{{ p }}</span>
+        {% elif p <= 2 or p >= pages or (p >= page-1 and p <= page+1) %}
+        <a href="?page={{ p }}">{{ p }}</a>
+        {% elif p == 3 and page > 4 %}
+        <span class="ellipsis">…</span>
+        {% elif p == pages-1 and page < pages-3 %}
+        <span class="ellipsis">…</span>
+        {% endif %}
+      {% endfor %}
+      {% if page < pages %}
+      <a href="?page={{ page+1 }}">下一页 →</a>
+      {% endif %}
+    </div>
     {% endif %}
   </div>
 </div>

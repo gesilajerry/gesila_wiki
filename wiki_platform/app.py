@@ -104,7 +104,7 @@ def _load_cards():
                 except:
                     continue
                 title = extract_title(text, slug)
-                tags = extract_tags(text)
+                tags = extract_keywords(text, top_n=10)
                 date_m = re.search(r'(\d{4}-\d{2}-\d{2})', f)
                 date = date_m.group(1) if date_m else ''
                 summary = extract_summary(text)
@@ -122,24 +122,77 @@ def extract_title(text, fallback):
             return line[3:].strip()
     return fallback
 
-def extract_tags(text):
-    tags = []
-    for line in text.split('\n'):
-        if '**标签**' not in line and '标签：' not in line and 'Tags：' not in line:
+# ── Stopwords ────────────────────────────────────────────────────────────────
+_STOPWORDS = set([
+    '的', '了', '是', '在', '和', '与', '或', '及', '等', '于', '为', '以', '对', '上', '下',
+    '中', '内', '外', '前', '后', '所', '能', '可', '会', '有', '也', '都', '而', '则',
+    '一个', '可以', '这个', '那个', '如果', '因为', '所以', '但是', '虽然', '或者',
+    '以及', '通过', '进行', '使用', '已经', '目前', '现在', '今天', '昨天', '明天',
+    '没有', '什么', '如何', '怎样', '为什么', '哪些', '哪些', '之一',
+    '延伸思考', '核心洞察', '核心事件', '核心数据', '核心观点', '创建时间',
+    '背景', '事件', '数据', '观点', '思考', '小结', '总结', '附录', '补充', '概述',
+    '**', '---', '==', '标签', '来源', '作者', '状态', 'tags',
+    '推送日报', '会话复盘', '提炼', '归档', '概念卡', '方法论', '案例库', '项目复盘',
+    '年月日', '时分秒', '时间', '日期', '本卡片由', '说明',
+    'ai', 'jerry', 'claude', 'anthropic', 'openai', 'google', 'gpu', '英伟达',
+    'mlcc', 'vs', 'md', 'cst', '01_inbox', '这是', '这意味着', '而是', '亿美元', '公司', '关注', '发布', '几个月', '个月',
+    'deepseek', 'ipo', 'ceo', 'gpt', 'cursor', 'code',
+    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
+    'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
+    'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might',
+    'this', 'that', 'these', 'those', 'it', 'its',
+])
+
+_RE_SKIP_LINE = re.compile(r'^\s*([#*=\[\]「」『』]|$|---|==|\d{4}[-年]|\d+[月日时])')
+
+def _is_meta_line(line):
+    return bool(_RE_SKIP_LINE.match(line.strip()))
+
+def _split_words(text):
+    """Split Chinese/English text into words, filter stopwords and single chars."""
+    words = re.findall(r'[\u4e00-\u9fff]+|[a-zA-Z0-9_]+', text)
+    result = []
+    for w in words:
+        if len(w) < 2:
             continue
-        idx = line.find('\uff1a')  # fullwidth colon
-        if idx < 0:
-            idx = line.find(':')
-        if idx < 0:
+        if w.lower() in _STOPWORDS:
             continue
-        tag_part = line[idx+1:]
-        parts = re.split(r'\u00d7', tag_part)  # ×
-        for p in parts:
-            p = p.strip().strip('*# \t')
-            if len(p) > 1:
-                tags.append(p)
-        break
-    return tags
+        if w.isdigit():
+            continue
+        result.append(w)
+    return result
+
+def _body_text(text):
+    """Return only the body text (after meta block: # title, tags, ---, etc)."""
+    lines = text.split('\n')
+    body_started = False
+    body_lines = []
+    for line in lines:
+        stripped = line.strip()
+        # Start of body: first non-skip line after we've passed the meta block
+        if not body_started:
+            # Skip all meta lines until we hit a real content paragraph
+            if _is_meta_line(stripped):
+                continue
+            # First non-meta line is the title → skip it too
+            body_started = True
+            continue
+        if stripped.startswith('#') or stripped.startswith('**') or stripped in ('---', '=='):
+            continue
+        body_lines.append(line)
+    return '\n'.join(body_lines)
+
+def extract_keywords(text, top_n=20):
+    """Extract most frequent meaningful words from body text only."""
+    body = _body_text(text)
+    words = _split_words(body)
+    freq = defaultdict(int)
+    seen = set()
+    for w in words:
+        if w not in seen:
+            freq[w] += 1
+            seen.add(w)
+    return [w for w, _ in sorted(freq.items(), key=lambda x: x[1], reverse=True)[:top_n]]
 
 def extract_summary(text, maxlen=180):
     lines = text.split('\n')
@@ -173,8 +226,6 @@ def render_card(card, all_cards):
 def _build_graph(cards):
     nodes, edges = [], []
     edge_set = set()
-    tag_index = defaultdict(list)
-    topic_index = defaultdict(list)
 
     layer_map = {
         '01_Inbox': 0,
@@ -182,23 +233,24 @@ def _build_graph(cards):
         '03_Output': 2,
     }
 
+    # ── Extract keywords for each card ─────────────────────────────────────
     for c in cards:
-        for t in c['tags']:
-            tag_index[t].append(c)
-        h2s = re.findall(r'^##\s+(.+)$', c['raw'], re.MULTILINE)
-        for h2 in h2s:
-            skip = {'背景','核心洞察','核心事件','核心数据','核心观点',
-                    '延伸思考','小结','总结','附录','补充','概述'}
-            if h2.strip() not in skip and len(h2.strip()) > 2:
-                topic_index[h2.strip()].append(c)
+        c['_keywords'] = set(extract_keywords(c['raw'], top_n=30))
 
+    # Global keyword index: keyword → list of cards
+    kw_index = defaultdict(list)
+    for c in cards:
+        for kw in c['_keywords']:
+            kw_index[kw].append(c)
+
+    # ── Build nodes ─────────────────────────────────────────────────────────
     for c in cards:
         nodes.append({
             'id': c['slug'],
             'title': c['title'],
             'category': c['category'],
             'layer': layer_map.get(c['category'], 1),
-            'tags': c['tags'],
+            'tags': list(c['_keywords'])[:5],   # reuse field: top-5 keywords as display tags
             'date': c['date'],
             'summary': c['summary'][:80],
             'degree': 0
@@ -213,29 +265,50 @@ def _build_graph(cards):
                 if n['id'] in key:
                     n['degree'] += 1
 
-    for c in cards:
-        for tag in c['tags']:
-            for other in tag_index[tag]:
-                add_edge(c['slug'], other['slug'], f'标签:{tag}')
-
-    for topic, cs in topic_index.items():
-        if len(cs) < 2:
+    # ── Link 1: Keyword co-occurrence ─────────────────────────────────────────
+    # Only connect if they share ≥3 meaningful keywords AND keywords are not too common
+    kw_doc_count = {kw: len(docs) for kw, docs in kw_index.items()}
+    min_kw, max_kw = 2, max(2, len(cards) * 0.03)  # keyword must appear in 2~3% of docs (≥2 docs)
+    for kw, owners in kw_index.items():
+        if len(owners) < min_kw or len(owners) > max_kw:
             continue
-        for i, ci in enumerate(cs):
-            for j, cj in enumerate(cs):
+        for i, ci in enumerate(owners):
+            for j, cj in enumerate(owners):
                 if i >= j:
                     continue
-                if ci['category'] == cj['category']:
-                    add_edge(ci['slug'], cj['slug'], f'同题:{topic[:12]}')
+                shared = ci['_keywords'] & cj['_keywords']
+                if len(shared) >= 3:
+                    label = ' · '.join(sorted(shared)[:3])
+                    add_edge(ci['slug'], cj['slug'], f'共词:{label[:20]}')
 
-    all_cards_map = {c['slug']: c for c in cards}
+    # ── Link 2: Same creation batch (same YYYY-MM-DD) ───────────────────────────
+    # Only connect docs that share the exact day AND the day has ≤15 docs
+    date_index = defaultdict(list)
     for c in cards:
-        if layer_map.get(c['category']) == 2:
-            for other in cards:
-                if layer_map.get(other['category']) == 1:
-                    if other['title'] in c['raw'] and other['slug'] != c['slug']:
-                        add_edge(c['slug'], other['slug'], '引用')
+        if c['date'] and len(c['date']) == 10:
+            date_index[c['date']].append(c)
 
+    for date, owners in date_index.items():
+        if len(owners) < 2 or len(owners) > 8:
+            continue
+        for i, ci in enumerate(owners):
+            for j, cj in enumerate(owners):
+                if i >= j:
+                    continue
+                add_edge(ci['slug'], cj['slug'], '同日')
+
+    # ── Link 3: Title mention (A mentions B's title in body) ──────────────
+    title_map = {c['title']: c for c in cards}
+    for c in cards:
+        for title, other in title_map.items():
+            if title == c['title'] or title == other['title']:
+                continue
+            if len(title) < 4:
+                continue
+            if title in c['raw']:
+                add_edge(c['slug'], other['slug'], '引用')
+
+    # ── Ensure no orphans ───────────────────────────────────────────────────
     for n in nodes:
         if n['degree'] == 0:
             same_cat = [x for x in nodes if x['category'] == n['category'] and x['id'] != n['id']]
@@ -248,14 +321,11 @@ def _build_graph(cards):
                     best = max(others, key=lambda x: x['degree'])
                     add_edge(n['id'], best['id'], '跨类关联')
 
-    return {'nodes': nodes, 'edges': edges}
+    # Clean up temporary keyword sets
+    for c in cards:
+        del c['_keywords']
 
-def build_graph():
-    global _cache
-    cards = get_cards()
-    with _cache_lock:
-        if _cache['graph']:
-            return _cache['graph']
+    return {'nodes': nodes, 'edges': edges}
     return _build_graph(cards)
 
 # ── Routes ───────────────────────────────────────────────────────────────────
@@ -294,22 +364,42 @@ def card_view(slug):
 def graph_page():
     return render_template('graph.html')
 
+def build_graph():
+    global _cache
+    cards = get_cards()
+    with _cache_lock:
+        if _cache['graph']:
+            return _cache['graph']
+    return _build_graph(cards)
+
 @app.route('/api/graph')
 def api_graph():
     return build_graph()
 
 @app.route('/category/<cat>')
 def category(cat):
+    page = max(1, int(request.args.get('page', 1)))
+    per_page = 12
     cards = get_cards()
     filtered = sorted([c for c in cards if c['category'] == cat],
                      key=lambda x: x['date'], reverse=True)
-    return render_template('category.html', cat=cat, cards=filtered)
+    total = len(filtered)
+    page_cards = filtered[(page-1)*per_page:page*per_page]
+    pages = (total + per_page - 1) // per_page
+    return render_template('category.html', cat=cat, cards=page_cards,
+                          page=page, pages=pages, total=total)
 
 @app.route('/all')
 def all_cards():
+    page = max(1, int(request.args.get('page', 1)))
+    per_page = 12
     cards = get_cards()
     filtered = sorted(cards, key=lambda x: x['date'], reverse=True)
-    return render_template('category.html', cat='全部卡片', cards=filtered)
+    total = len(filtered)
+    page_cards = filtered[(page-1)*per_page:page*per_page]
+    pages = (total + per_page - 1) // per_page
+    return render_template('category.html', cat='全部卡片', cards=page_cards,
+                          page=page, pages=pages, total=total)
 
 @app.route('/search')
 def search():
@@ -325,15 +415,67 @@ def search():
         results = []
     return render_template('search.html', query=q, results=results)
 
+_TAG_STOPWORDS = set([
+    # ── 通用中文 ────────────────────────────────────────────────
+    '的', '了', '是', '在', '和', '与', '或', '及', '等', '于', '为', '以', '对', '上', '下',
+    '中', '内', '外', '前', '后', '所', '能', '可', '会', '有', '也', '都', '而', '则',
+    '一个', '可以', '这个', '那个', '如果', '因为', '所以', '但是', '虽然', '或者',
+    '以及', '通过', '进行', '使用', '已经', '目前', '现在', '今天', '昨天', '明天',
+    '没有', '什么', '如何', '怎样', '为什么', '哪些', '之一',
+    '重要', '一般', '普通', '特殊', '关键',
+    '成功', '失败', '完成', '进行中', '待处理', '备注', '备注说明',
+    '过去', '未来', '现在', '目前', '今日', '本周', '本月', '今年',
+    # ── 模板/Meta ────────────────────────────────────────────────
+    '延伸思考', '核心洞察', '核心事件', '核心数据', '核心观点', '创建时间',
+    '背景', '事件', '数据', '观点', '思考', '小结', '总结', '附录', '补充', '概述',
+    '标签', '来源', '作者', '状态', 'tags',
+    '推送日报', '会话复盘', '提炼', '归档', '概念卡', '方法论', '案例库', '项目复盘',
+    '年月日', '时分秒', '时间', '日期', '本卡片由', '说明',
+    '归档时间', '创建时间', '更新时间', '修改时间',
+    # ── Cron 推送输出词 ─────────────────────────────────────────
+    '热点推送', '热点日报', '热点播报',
+    '财经新闻推送', '财经早报', '财经新闻',
+    '半导体热点晨报', '半导体晨报',
+    '数据来源', '数据窗口',
+    '推送任务成功率', '任务执行总数', '送达渠道', '飞书总体运营群', '飞书用户',
+    '含误报', '未删减', '内容均实际送达', '内容实际已推送成功', '本窗口内',
+    '按时间顺序排列', '摘要', '送达状态',
+    # ── 英文工具/系统词 ──────────────────────────────────────────
+    'ai', 'jerry', 'claude', 'anthropic', 'openai', 'google', 'gpu', '英伟达',
+    'mlcc', 'vs', 'md', 'cst', '01_inbox',
+    'deepseek', 'ipo', 'ceo', 'gpt', 'cursor', 'code',
+    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
+    'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
+    'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might',
+    'this', 'that', 'these', 'those', 'it', 'its',
+    # ── 技术/格式残留 ────────────────────────────────────────────
+    'json', 'ts', 'md', 'html', 'css', 'py', 'js',
+    'jobid', 'runs', 'cron', 'schedule',
+    'uuid', 'slug', 'tag', 'url',
+    'hot', 'new', 'top', 'hotfix',
+])
+
 @app.route('/tags')
 def tags_page():
+    page = max(1, int(request.args.get('page', 1)))
+    per_page = 100
     cards = get_cards()
     freq = defaultdict(int)
     for c in cards:
         for t in c['tags']:
+            t = t.strip()
+            if len(t) < 2 or len(t) > 20 or t.isdigit():
+                continue
+            if t.lower() in _TAG_STOPWORDS:
+                continue
             freq[t] += 1
-    tags = sorted(freq.items(), key=lambda x: x[1], reverse=True)
-    return render_template('tags.html', tags=tags)
+    # Only keep tags appearing 2+ times (low-freq noise)
+    all_tags = sorted([(k, v) for k, v in freq.items() if v >= 2],
+                     key=lambda x: x[1], reverse=True)
+    total = len(all_tags)
+    page_tags = all_tags[(page-1)*per_page:page*per_page]
+    pages = (total + per_page - 1) // per_page
+    return render_template('tags.html', tags=page_tags, page=page, pages=pages, total=total)
 
 if __name__ == '__main__':
     print("[Jerry Wiki] Starting... pre-warming cache")

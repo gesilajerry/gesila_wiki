@@ -32,6 +32,12 @@ h2{font-size:15px;font-weight:700;color:#0a1f5c;margin-bottom:16px;padding-botto
 .tag-item.large{font-size:14px;padding:6px 14px;}
 .tag-item.xlarge{font-size:16px;font-weight:700;padding:7px 16px;}
 .count{font-size:10px;opacity:.55;margin-left:3px;}
+/* Pagination */
+.pagination{margin-top:20px;display:flex;justify-content:center;gap:6px;align-items:center;}
+.pagination a,.pagination span{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:8px;font-size:13px;border:1px solid rgba(0,0,0,.12);background:#fff;color:#1a1a2e;text-decoration:none;}
+.pagination a:hover{background:#eff6ff;color:#1446c0;border-color:#1446c0;}
+.pagination .cur{background:#0a1f5c;color:#fff;border-color:#0a1f5c;}
+.pagination .ellipsis{background:none;border:none;color:#9ca3af;}
 </style>
 </head>
 <body>
@@ -46,7 +52,7 @@ h2{font-size:15px;font-weight:700;color:#0a1f5c;margin-bottom:16px;padding-botto
   </nav>
 </div>
 <div class="container">
-  <h2>🏷️ 标签云（共 {{tags|length}} 个标签）</h2>
+  <h2>🏷️ 标签云（共 {{ total }} 个标签{% if pages>1 %} · 第 {{ page }}/{{ pages }} 页{% endif %}）</h2>
   <div class="tag-cloud">
     {% for tag, freq in tags %}
     <a href="/search?q={{tag|urlencode}}" class="tag-item {% if freq >= 8 %}xlarge{% elif freq >= 4 %}large{% endif %}">
@@ -54,6 +60,28 @@ h2{font-size:15px;font-weight:700;color:#0a1f5c;margin-bottom:16px;padding-botto
     </a>
     {% endfor %}
   </div>
+
+  {% if pages > 1 %}
+  <div class="pagination">
+    {% if page > 1 %}
+    <a href="?page={{ page-1 }}">← 上一页</a>
+    {% endif %}
+    {% for p in range(1, pages+1) %}
+      {% if p == page %}
+      <span class="cur">{{ p }}</span>
+      {% elif p <= 2 or p >= pages or (p >= page-1 and p <= page+1) %}
+      <a href="?page={{ p }}">{{ p }}</a>
+      {% elif p == 3 and page > 4 %}
+      <span class="ellipsis">…</span>
+      {% elif p == pages-1 and page < pages-3 %}
+      <span class="ellipsis">…</span>
+      {% endif %}
+    {% endfor %}
+    {% if page < pages %}
+    <a href="?page={{ page+1 }}">下一页 →</a>
+    {% endif %}
+  </div>
+  {% endif %}
 </div>
 </body>
 </html>
