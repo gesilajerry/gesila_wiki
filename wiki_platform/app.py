@@ -5,9 +5,17 @@ Jerry Wiki Platform
 """
 import os, re, markdown2 as markdown, time, threading
 from flask import Flask, render_template, request, abort
+from urllib.parse import unquote
 from collections import defaultdict
 
 WIKI_ROOT = "/Volumes/256G/gesila_wiki"
+COMPILE_ROOT = "/Volumes/256G/gesila_compile"
+COMPILE_SUBDIRS = {
+    "sources": "已蒸馏来源",
+    "entities": "已蒸馏实体",
+    "concepts": "已蒸馏概念",
+    "syntheses": "已蒸馏综合",
+}
 SUBDIRS = {
     "02_Knowledge/概念卡": "概念卡",
     "02_Knowledge/方法论": "方法论",
@@ -16,6 +24,71 @@ SUBDIRS = {
     "03_Output": "03_Output",
     "01_Inbox": "01_Inbox",
 }
+
+# ── Compile Cache ──────────────────────────────────────────────────────────
+_compile_cache = {'cards': [], 'loaded_at': 0, 'file_mtimes': {}}
+_compile_cache_lock = threading.RLock()
+
+def _compile_mtime(path):
+    try:
+        return os.stat(path).st_mtime
+    except OSError:
+        return 0
+
+def _compile_scan_mtimes():
+    mtimes = {}
+    for subdir in COMPILE_SUBDIRS:
+        d = os.path.join(COMPILE_ROOT, subdir)
+        if not os.path.exists(d):
+            continue
+        for root, _, files in os.walk(d):
+            for f in files:
+                if f.endswith('.md'):
+                    mtimes[os.path.join(root, f)] = _compile_mtime(os.path.join(root, f))
+    return mtimes
+
+def get_compile_cards(force_refresh=False):
+    global _compile_cache
+    now = time.time()
+    with _compile_cache_lock:
+        new_mtimes = _compile_scan_mtimes()
+        if (not force_refresh
+                and _compile_cache['cards']
+                and not _files_changed(_compile_cache['file_mtimes'], new_mtimes)
+                and now - _compile_cache['loaded_at'] < 3600):
+            return _compile_cache['cards']
+    cards = _load_compile_cards()
+    with _compile_cache_lock:
+        _compile_cache['cards'] = cards
+        _compile_cache['loaded_at'] = time.time()
+        _compile_cache['file_mtimes'] = new_mtimes
+    return cards
+
+def _load_compile_cards():
+    cards = []
+    for subdir, cat in COMPILE_SUBDIRS.items():
+        d = os.path.join(COMPILE_ROOT, subdir)
+        if not os.path.exists(d):
+            continue
+        for root, _, files in os.walk(d):
+            for f in sorted(files):
+                if not f.endswith('.md'):
+                    continue
+                path = os.path.join(root, f)
+                slug = f.replace('.md', '')
+                try:
+                    with open(path, 'r', encoding='utf-8') as fh:
+                        text = fh.read()
+                except:
+                    continue
+                title = extract_title(text, slug)
+                tags = extract_keywords(text, top_n=10)
+                date_m = re.search(r'(\d{4}-\d{2}-\d{2})', text)
+                date = date_m.group(1) if date_m else ''
+                summary = extract_summary(text)
+                cards.append(dict(slug=slug, path=path, title=title, tags=tags,
+                                  category=cat, date=date, summary=summary, raw=text))
+    return cards
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'jerry-wiki-2026'
@@ -405,15 +478,70 @@ def all_cards():
 def search():
     q = request.args.get('q', '').strip()
     cards = get_cards()
+    compile_cards = get_compile_cards()
+    all_cards = cards + compile_cards
     if q:
         qlow = q.lower()
-        results = [c for c in cards
+        results = [c for c in all_cards
                    if qlow in c['title'].lower()
                    or qlow in ' '.join(c['tags']).lower()
                    or qlow in c['raw'].lower()]
     else:
         results = []
     return render_template('search.html', query=q, results=results)
+
+# ── Compile Routes ────────────────────────────────────────────────────────
+@app.route('/compile')
+def compile_home():
+    compile_cards = get_compile_cards()
+    cats = defaultdict(list)
+    for c in compile_cards:
+        cats[c['category']].append(c)
+    recent = sorted(compile_cards, key=lambda x: x['date'], reverse=True)[:12]
+    cat_stats = {k: len(v) for k, v in cats.items()}
+    total = len(compile_cards)
+    return render_template('compile_home.html',
+                          recent=recent, cat_stats=cat_stats, total=total)
+
+@app.route('/compile/category/<cat>')
+def compile_category(cat):
+    page = max(1, int(request.args.get('page', 1)))
+    per_page = 12
+    cards = get_compile_cards()
+    filtered = sorted([c for c in cards if c['category'] == cat],
+                     key=lambda x: x['date'], reverse=True)
+    total = len(filtered)
+    page_cards = filtered[(page-1)*per_page:page*per_page]
+    pages = (total + per_page - 1) // per_page
+    return render_template('category.html', cat=cat, cards=page_cards,
+                          page=page, pages=pages, total=total)
+
+@app.route('/compile/card')
+def compile_card():
+    slug = request.args.get('slug', '')
+    cards = get_compile_cards()
+    card = None
+    for c in cards:
+        if c['slug'] == slug:
+            card = c
+            break
+    if not card:
+        abort(404)
+
+    # compile 层的 entity/concept 原始文件含 frontmatter，先剥离再渲染
+    raw = card.get('raw', '')
+    raw_clean = re.sub(r'^---\n[\s\S]+?\n---\n', '', raw)
+
+    related = []
+    for other in cards:
+        if other['slug'] == slug:
+            continue
+        shared = set(card['tags']) & set(other['tags'])
+        if shared:
+            related.append((other, list(shared)[:3]))
+    related = sorted(related, key=lambda x: len(x[1]), reverse=True)[:8]
+    html = render_card({**card, 'raw': raw_clean}, cards)
+    return render_template('card.html', card=card, content=html, related=related)
 
 _TAG_STOPWORDS = set([
     # ── 通用中文 ────────────────────────────────────────────────
