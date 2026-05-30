@@ -61,7 +61,7 @@ a:hover{text-decoration:underline;}
     <div class="cards-grid">
       {% for card in cards %}
       <div class="card-item {% if card.category == '概念卡' %}blue{% elif card.category == '方法论' %}teal{% elif card.category == '案例库' %}green{% elif card.category == '项目复盘' %}orange{% endif %}">
-        <div class="card-title"><a href="/card/{{card.slug}}">{{card.title}}</a></div>
+        <div class="card-title"><a href="/compile/card?slug={{card.slug | urlencode}}">{{card.title}}</a></div>
         <div class="card-meta">{{card.date or '无日期'}}</div>
         <div class="card-tags">
           {% for tag in card.tags[:4] %}<span class="tag">{{tag}}</span>{% endfor %}

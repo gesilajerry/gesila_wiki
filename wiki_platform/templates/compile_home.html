@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Jerry 知识维基</title>
+<title>已蒸馏内容 - Jerry 知识维基</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;color:#1a1a2e;background:#f0f2f5;line-height:1.7;}
@@ -12,7 +12,7 @@ a:hover{color:#0a1f5c;text-decoration:underline;}
 
 /* 顶栏 */
 .header{
-  background:linear-gradient(135deg,#0a1f5c,#1446c0);
+  background:linear-gradient(135deg,#003366,#0066AA);
   color:#fff;
   display:flex;align-items:center;
   height:52px;padding:0 16px;gap:10px;
@@ -62,9 +62,6 @@ a:hover{color:#0a1f5c;text-decoration:underline;}
   background:rgba(255,255,255,.15);border:none;border-radius:14px;
   color:#fff;font-size:12px;cursor:pointer;padding:3px 8px;
 }
-.search-icon-label{
-  font-size:11px;color:rgba(255,255,255,.7);
-}
 
 /* 内容 */
 .container{max-width:1200px;margin:0 auto;padding:20px 16px;}
@@ -72,36 +69,34 @@ a:hover{color:#0a1f5c;text-decoration:underline;}
 /* 统计栏 */
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:24px;}
 .stat-card{background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.08);text-align:center;}
-.stat-card .num{font-size:24px;font-weight:800;color:#0a1f5c;}
+.stat-card .num{font-size:24px;font-weight:800;color:#0066AA;}
 .stat-card .label{font-size:11px;color:#6b7280;margin-top:3px;}
-.stat-card.blue{background:linear-gradient(135deg,#0a1f5c,#1446c0);color:#fff;}
+.stat-card.blue{background:linear-gradient(135deg,#003366,#0066AA);color:#fff;}
 .stat-card a{color:inherit;text-decoration:none;display:block;}
-.stat-card a:hover .num{color:#1446c0;}
+.stat-card a:hover .num{color:#0066AA;}
 .stat-card.blue a:hover .num{color:#fff;}
 .stat-card.blue .label{color:rgba(255,255,255,.65);}
 .stat-card.blue .num{color:#fff;}
 
-/* 最近更新 */
+/* 分区标题 */
 .section{margin-bottom:28px;}
-.section h2{font-size:15px;font-weight:700;color:#0a1f5c;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #0a1f5c;display:flex;justify-content:space-between;align-items:center;}
-.section h2 a{font-size:11px;font-weight:400;color:#1446c0;}
+.section h2{font-size:15px;font-weight:700;color:#003366;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #0066AA;display:flex;justify-content:space-between;align-items:center;}
+.section h2 a{font-size:11px;font-weight:400;color:#0066AA;}
 .cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
-.card-item{background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.08);transition:box-shadow .2s,transform .2s;cursor:pointer;border-left:3px solid #0a1f5c;}
+.card-item{background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.08);transition:box-shadow .2s,transform .2s;cursor:pointer;border-left:3px solid #0066AA;}
 .card-item:hover{box-shadow:0 4px 16px rgba(0,0,0,.14);transform:translateY(-2px);}
-.card-item.orange{border-left-color:#d97706;}
-.card-item.teal{border-left-color:#0f766e;}
-.card-item.green{border-left-color:#15803d;}
-.card-item.gold{border-left-color:#b45309;}
+.card-item.sources{border-left-color:#003366;}
+.card-item.entities{border-left-color:#0066AA;}
+.card-item.concepts{border-left-color:#0099CC;}
+.card-item.syntheses{border-left-color:#003366;}
 .card-item .card-title{font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:6px;line-height:1.4;}
 .card-item .card-title a{color:#1a1a2e;}
-.card-item .card-title a:hover{color:#1446c0;}
+.card-item .card-title a:hover{color:#0066AA;}
 .card-item .card-meta{font-size:11px;color:#9ca3af;margin-bottom:8px;}
 .card-item .card-tags{display:flex;flex-wrap:wrap;gap:4px;}
-.tag{font-size:10px;padding:2px 8px;border-radius:3px;background:#eff6ff;color:#1446c0;}
-.card-item.orange .tag{background:#fffbeb;color:#d97706;}
-.card-item.teal .tag{background:#f0fdfa;color:#0f766e;}
-.card-item.green .tag{background:#f0fdf4;color:#15803d;}
-.card-item.gold .tag{background:#fffbf0;color:#b45309;}
+.tag{font-size:10px;padding:2px 8px;border-radius:3px;background:#e6f0fa;color:#0066AA;}
+.card-item.entities .tag{background:#e6f0fa;color:#0066AA;}
+.card-item.concepts .tag{background:#e6f7ff;color:#0099CC;}
 .card-item .card-summary{font-size:12px;color:#6b7280;margin-top:8px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 
 /* 底部 */
@@ -120,7 +115,7 @@ a:hover{color:#0a1f5c;text-decoration:underline;}
     <a href="/category/方法论">方法论</a>
     <a href="/category/案例库">案例库</a>
     <a href="/category/项目复盘">项目复盘</a>
-    <a href="/compile">🔥 已蒸馏</a>
+    <a href="/compile" class="active">🔥 已蒸馏</a>
   </nav>
   <div class="hdr-right">
     <div class="search-icon" onclick="expandSearch(this)" title="搜索">🔍</div>
@@ -135,10 +130,10 @@ a:hover{color:#0a1f5c;text-decoration:underline;}
   <div class="stats">
     <div class="stat-card blue">
       <div class="num">{{total}}</div>
-      <div class="label">知识卡片</div>
+      <div class="label">已蒸馏条目</div>
     </div>
     {% for cat, count in cat_stats.items() %}
-    <a href="/category/{{cat}}" class="stat-card">
+    <a href="/compile/category/{{cat}}" class="stat-card">
       <div class="num">{{count}}</div>
       <div class="label">{{cat}}</div>
     </a>
@@ -146,11 +141,11 @@ a:hover{color:#0a1f5c;text-decoration:underline;}
   </div>
 
   <div class="section">
-    <h2>📄 最近更新 <a href="/all" style="font-size:11px;font-weight:400;color:#1446c0;">查看全部 →</a></h2>
+    <h2>🔥 最近蒸馏 <a href="/compile/category/已蒸馏来源">查看全部 →</a></h2>
     <div class="cards-grid">
       {% for card in recent %}
-      <div class="card-item {% if card.category == '概念卡' %}blue{% elif card.category == '方法论' %}teal{% elif card.category == '案例库' %}green{% elif card.category == '项目复盘' %}orange{% else %}gold{% endif %}">
-        <div class="card-title"><a href="/card/{{card.slug}}">{{card.title}}</a></div>
+      <div class="card-item {% if card.category == '已蒸馏来源' %}sources{% elif card.category == '已蒸馏实体' %}entities{% elif card.category == '已蒸馏概念' %}concepts{% else %}sources{% endif %}">
+        <div class="card-title"><a href="/compile/card?slug={{card.slug | urlencode}}">{{card.title}}</a></div>
         <div class="card-meta">{{card.category}} · {{card.date or '无日期'}}</div>
         <div class="card-tags">
           {% for tag in card.tags[:4] %}
@@ -162,16 +157,10 @@ a:hover{color:#0a1f5c;text-decoration:underline;}
       {% endfor %}
     </div>
   </div>
-
-  <div class="section">
-    <h2>🔗 知识图谱 <a href="/graph">进入交互图谱 →</a></h2>
-    <p style="color:#6b7280;font-size:13px;margin-bottom:10px;">点击进入可视化图谱，查看各知识点之间的关联关系，鼠标悬停在节点上可预览内容。</p>
-  </div>
 </div>
 
 <div class="footer">
-  Jerry 知识维基 · Jerry Knowledge Wiki · {{total}} 知识卡片<br>
-  数据来源：/Volumes/256G/gesila_wiki
+  Jerry 知识维基 · 已蒸馏内容 · 数据来源：/Volumes/256G/gesila_compile
 </div>
 
 <script>
